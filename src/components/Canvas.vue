@@ -4,6 +4,8 @@
       <ul class="images__list">
         <li class="images__item">
           <img
+            draggable
+            @dragstart="startDrag($event)"
             alt="uma"
             src="https://konvajs.org/assets/yoda.jpg"
             crossorigin="anonymous"
@@ -14,6 +16,8 @@
         </li>
         <li class="images__item">
           <img
+            draggable
+            @dragstart="startDrag($event)"
             alt="duas"
             src="https://konvajs.org/assets/darth-vader.jpg"
             crossorigin="anonymous"
@@ -29,6 +33,7 @@
       id="foamboard"
       ref="foamboard"
       @click="handlesBoardClick($event)"
+      @dropend="handlesBoardClick($event)"
     >
     </div>
   </section>
@@ -52,6 +57,9 @@ export default {
       },
       isDrawing: false,
       imageUrl: '',
+      imageWidth: 0,
+      imageHeight: 0,
+      textLabel: '',
       dragok: false,
       startX: 0,
       startY: 0,
@@ -64,6 +72,7 @@ export default {
   },
 
   mounted() {
+    const vm = this
     this.stage = new Konva.Stage({ // this line till the stage.add() line renders the draggable square
       container: 'foamboard',
       width: 1000,
@@ -77,12 +86,48 @@ export default {
       y: 40,
       draggable: true
     })
+
+    const container = this.stage.container()
+
+    container.addEventListener('dragover', function (e) {
+      e.preventDefault()
+    })
+
+    container.addEventListener('drop', function (e) {
+      e.preventDefault()
+      vm.addItemToBoard(e)
+    })
   },
 
   methods: {
+    startDrag (evt) {
+      evt.dataTransfer.dropEffect = 'move'
+      evt.dataTransfer.effectAllowed = 'move'
+      this.imageUrl = evt.target.src
+      this.imageWidth = evt.target.width
+      this.imageHeight = evt.target.height
+      this.textLabel = evt.target.nextSibling.outerText
+    },
+
     addItemToBoard(evt) {
+      let positionX = 50
+      let positionY = 50
+      let selectedImage = evt.target.src
+      let imageWidth = evt.target.width ? evt.target.width : 0
+      let imageHeight = evt.target.height ? evt.target.height : 0
+      let textLabel = evt.target.nextSibling ? evt.target.nextSibling.outerText : ''
+
+      if (evt.dataTransfer) {
+        positionX = evt.layerX - 150
+        positionY = evt.layerY - 100
+        selectedImage = this.imageUrl
+        imageWidth = this.imageWidth
+        imageHeight = this.imageHeight
+        textLabel = this.textLabel
+      }
+
       const vm = this
-  
+
       const transformer = new Konva.Transformer()
       this.transformer = transformer
       this.layer.add(transformer)
@@ -95,16 +140,16 @@ export default {
 
       let images = this.images
 
-      const imageObj = new Image();
+      const imageObj = new Image()
+      imageObj.src = selectedImage
+
       imageObj.onload = function () {
-        const imageWidth = evt.target.width
-        const imageHeight = evt.target.height
         const maxSize = 100
-        const ratio = (evt.target.width > evt.target.height ? (evt.target.width / maxSize) : (evt.target.height / maxSize))
+        const ratio = (imageWidth > imageHeight ? (imageWidth / maxSize) : (imageHeight / maxSize))
 
         const image = new Konva.Image({
-          x: 50,
-          y: 50,
+          x: positionX,
+          y: positionY,
           image: imageObj,
           width: imageWidth/ratio,
           height: imageHeight/ratio,
@@ -112,11 +157,11 @@ export default {
         })
 
         const labelText = new Konva.Text({
-          x: 50,
-          y: 140,
-          text: evt.target.nextSibling.outerText,
+          x: positionX,
+          y: positionY + 80,
+          text: textLabel,
           fontSize: 14,
-          fontFamily: 'Calibri',
+          fontFamily: 'Avenir',
           fill: 'black',
           cornerRadius: 10,
           width: 100,
@@ -125,8 +170,8 @@ export default {
         })
 
         const textLabelBg = new Konva.Rect({
-          x: 50,
-          y: 140,
+          x: positionX,
+          y: positionY + 80,
           fill: '#ddd',
           width: labelText.width(),
           height: labelText.height(),
@@ -160,9 +205,6 @@ export default {
           const x = group.attrs.x + 50
           const y = group.attrs.y + 50
 
-          console.log(group.attrs.x)
-          console.log(group.attrs.y)
-
           if (x > 900 || x < 0 || y > 590 || y < 0) {
             group.absolutePosition({
               x: vm.startX,
@@ -174,8 +216,6 @@ export default {
         transformer.nodes([image, textLabelBg, labelText])
         images[evt.target.id] = image
       }
-
-      imageObj.src = evt.target.src
         
       this.selectedShapeName = `image-${evt.target.id}`
       this.stage.add(this.layer)
@@ -184,7 +224,6 @@ export default {
     handlesBoardClick() {
       const stage = this.stage
       const transformer = this.transformer
-      console.log(this.layer.getContext())
       const vm = this
 
       this.group.remove()
@@ -210,7 +249,6 @@ export default {
           return
         }
 
-        console.log(item.nodes()[0].parent)
         item.nodes()[0].parent.remove()
         item.detach()
       })
